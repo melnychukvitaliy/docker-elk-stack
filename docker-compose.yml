@@ -1,0 +1,70 @@
+version: "3"
+
+networks:
+  elk6-stack:
+
+volumes:
+  es6_data: {}
+
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.6.0
+    environment:
+      - cluster.name=es-elk-dev
+      - "ES_JAVA_OPTS=-Xms2048m -Xmx2048m"
+      - bootstrap.memory_lock=false
+      - xpack.security.enabled=false
+      - xpack.watcher.enabled=false
+      - transport.host=127.0.0.1
+      - http.host=0.0.0.0
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    volumes:
+      - es6_data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+    networks:
+      - elk6-stack
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:6.6.0
+    volumes:
+      - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "28777:28777"
+      - "28888:28888/udp"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - elk6-stack
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.6.0
+    volumes:
+      - ./kibana/:/usr/share/kibana/config
+    ports:
+      - "5601:5601"
+    networks:
+      - elk6-stack
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:6.6.0
+    environment:
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    ports:
+      - "8200:8200"
+    networks:
+      - elk6-stack
